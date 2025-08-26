@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  description String?
+  color       String   @default("#3b82f6")
+  icon        String?
+  parentId    String?  @db.ObjectId
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Category[] @relation("CategoryHierarchy")
+  prompts     Prompt[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Tag {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  name      String      @unique
+  color     String      @default("#10b981")
+  prompts   PromptTag[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model Prompt {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  content       String
+  instructions  String?
+  sections      String?
+  promptType    PromptType     @default(OTHER)
+  categoryId    String?        @db.ObjectId
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  tags          PromptTag[]
+  sampleOutputs SampleOutput[]
+  ebookPrompts  EbookPrompt[]
+  isFavorite    Boolean        @default(false)
+  usageCount    Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model PromptTag {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  promptId String @db.ObjectId
+  tagId    String @db.ObjectId
+  prompt   Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, tagId])
+}
+
+model SampleOutput {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  promptId  String     @db.ObjectId
+  prompt    Prompt     @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  title     String?
+  content   String?
+  filePath  String?
+  fileType  String?
+  outputType OutputType @default(TEXT)
+  includeInExport Boolean @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum PromptType {
+  CODE
+  IMAGE
+  BUSINESS
+  TECHNICAL
+  CREATIVE
+  ANALYSIS
+  MARKETING
+  OTHER
+}
+
+enum OutputType {
+  TEXT
+  IMAGE
+  FILE
+}
+
+model EbookExport {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  title            String         @default("My Prompt Collection")
+  subtitle         String?
+  author           String?
+  coverImage       String?
+  aboutText        String?
+  includeCategories Boolean        @default(false)
+  includeTags      Boolean        @default(false)
+  thankYouTitle    String?        @default("Thank You")
+  thankYouMessage  String?
+  status           EbookStatus    @default(DRAFT)
+  prompts          EbookPrompt[]
+  customPages      EbookPage[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model EbookPrompt {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  ebookId      String      @db.ObjectId
+  promptId     String      @db.ObjectId
+  order        Int
+  customTitle  String?
+  customIntro  String?
+  includeInstructions Boolean @default(true)
+  includeSamples      Boolean @default(true)
+  ebook        EbookExport @relation(fields: [ebookId], references: [id], onDelete: Cascade)
+  prompt       Prompt      @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([ebookId, promptId])
+}
+
+model EbookPage {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  ebookId   String      @db.ObjectId
+  title     String?
+  content   String
+  order     Int
+  pageType  PageType    @default(TEXT)
+  imageUrl  String?
+  ebook     EbookExport @relation(fields: [ebookId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+enum EbookStatus {
+  DRAFT
+  READY
+  EXPORTED
+}
+
+enum PageType {
+  TEXT
+  IMAGE
+  DIVIDER
+  COVER
+  ABOUT
+}
