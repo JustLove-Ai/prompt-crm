@@ -1,11 +1,11 @@
-'use client'
-
-import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MessageSquare, FolderOpen, Tags, Star, Plus, TrendingUp } from "lucide-react"
 import Link from "next/link"
+import { getPrompts } from '@/lib/actions/prompts'
+import { getCategories } from '@/lib/actions/categories'
+import { getTags } from '@/lib/actions/tags'
 
 interface DashboardStats {
   totalPrompts: number
@@ -21,57 +21,37 @@ interface RecentPrompt {
   createdAt: string
 }
 
-export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalPrompts: 0,
-    totalCategories: 0,
-    totalTags: 0,
-    totalFavorites: 0
-  })
-  const [recentPrompts, setRecentPrompts] = useState<RecentPrompt[]>([])
-  const [loading, setLoading] = useState(true)
+export default async function Dashboard() {
+  // Fetch data using server actions
+  const [promptsResult, categoriesResult, tagsResult] = await Promise.all([
+    getPrompts(),
+    getCategories(),
+    getTags()
+  ])
 
-  useEffect(() => {
-    fetchDashboardData()
-  }, [])
+  const prompts = promptsResult.success ? promptsResult.data : []
+  const categories = categoriesResult.success ? categoriesResult.data : []
+  const tags = tagsResult.success ? tagsResult.data : []
 
-  const fetchDashboardData = async () => {
-    try {
-      const [promptsRes, categoriesRes, tagsRes] = await Promise.all([
-        fetch('/api/prompts'),
-        fetch('/api/categories'),
-        fetch('/api/tags')
-      ])
+  // Calculate stats
+  const favorites = prompts.filter((p) => p.isFavorite).length
+  const recent = prompts
+    .slice(0, 5)
+    .map((p) => ({
+      id: p.id,
+      title: p.title,
+      promptType: p.promptType,
+      createdAt: new Date(p.createdAt).toLocaleDateString()
+    }))
 
-      const [prompts, categories, tags] = await Promise.all([
-        promptsRes.json(),
-        categoriesRes.json(),
-        tagsRes.json()
-      ])
-
-      const favorites = prompts.filter((p: any) => p.isFavorite).length
-      const recent = prompts
-        .slice(0, 5)
-        .map((p: any) => ({
-          id: p.id,
-          title: p.title,
-          promptType: p.promptType,
-          createdAt: new Date(p.createdAt).toLocaleDateString()
-        }))
-
-      setStats({
-        totalPrompts: prompts.length,
-        totalCategories: categories.length,
-        totalTags: tags.length,
-        totalFavorites: favorites
-      })
-      setRecentPrompts(recent)
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
-    } finally {
-      setLoading(false)
-    }
+  const stats: DashboardStats = {
+    totalPrompts: prompts.length,
+    totalCategories: categories.length,
+    totalTags: tags.length,
+    totalFavorites: favorites
   }
+
+  const recentPrompts: RecentPrompt[] = recent
 
   const statsConfig = [
     {

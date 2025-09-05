@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { Check, ChevronDown, X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './button'
@@ -60,19 +60,20 @@ export function EnhancedMultiSelect({
   const [newItemColor, setNewItemColor] = useState(DEFAULT_COLORS[0])
   const [creating, setCreating] = useState(false)
 
-  const selectedOptions = options.filter(option => selected.includes(option.value))
-  const availableOptions = options.filter(option => !selected.includes(option.value))
+  const safeSelected = selected || []
+  const selectedOptions = options.filter(option => safeSelected.includes(option.value))
+  const availableOptions = options.filter(option => !safeSelected.includes(option.value))
 
   const handleSelect = (value: string) => {
-    if (selected.includes(value)) {
-      onChange(selected.filter(item => item !== value))
+    if (safeSelected.includes(value)) {
+      onChange(safeSelected.filter(item => item !== value))
     } else {
-      onChange([...selected, value])
+      onChange([...safeSelected, value])
     }
   }
 
   const handleRemove = (value: string) => {
-    onChange(selected.filter(item => item !== value))
+    onChange(safeSelected.filter(item => item !== value))
   }
 
   const handleCreateNew = async () => {
@@ -86,7 +87,7 @@ export function EnhancedMultiSelect({
       )
       
       // Add the new option to selected
-      onChange([...selected, newOption.value])
+      onChange([...safeSelected, newOption.value])
       
       // Reset form
       setNewItemName('')
@@ -131,8 +132,8 @@ export function EnhancedMultiSelect({
                       } : undefined}
                     >
                       {option.label}
-                      <button
-                        className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      <span
+                        className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
@@ -140,7 +141,7 @@ export function EnhancedMultiSelect({
                         }}
                       >
                         <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                      </button>
+                      </span>
                     </Badge>
                   ))
                 ) : (
@@ -196,7 +197,7 @@ export function EnhancedMultiSelect({
                     <Check
                       className={cn(
                         "h-4 w-4",
-                        selected.includes(option.value) ? "opacity-100" : "opacity-0"
+                        safeSelected.includes(option.value) ? "opacity-100" : "opacity-0"
                       )}
                     />
                   </CommandItem>

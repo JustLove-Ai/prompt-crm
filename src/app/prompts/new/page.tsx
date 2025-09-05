@@ -16,6 +16,10 @@ import Link from 'next/link'
 import { FileUpload, UploadedFile } from '@/components/ui/file-upload'
 import { ImagePreview } from '@/components/ui/image-preview'
 import { VideoPreview } from '@/components/ui/video-preview'
+import { getCategories } from '@/lib/actions/categories'
+import { getTags, createTag } from '@/lib/actions/tags'
+import { createCategory } from '@/lib/actions/categories'
+import { createPrompt } from '@/lib/actions/prompts'
 
 interface Category {
   id: string
@@ -84,10 +88,9 @@ export default function NewPromptPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories')
-      if (response.ok) {
-        const data = await response.json()
-        setCategories(data)
+      const result = await getCategories()
+      if (result.success) {
+        setCategories(result.data)
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
@@ -96,10 +99,9 @@ export default function NewPromptPage() {
 
   const fetchTags = async () => {
     try {
-      const response = await fetch('/api/tags')
-      if (response.ok) {
-        const data = await response.json()
-        setTags(data)
+      const result = await getTags()
+      if (result.success) {
+        setTags(result.data)
       }
     } catch (error) {
       console.error('Failed to fetch tags:', error)
@@ -180,36 +182,31 @@ export default function NewPromptPage() {
       const processedSampleOutputs = sampleOutputs
         .filter(output => output.title || output.content || (output.attachedFiles && output.attachedFiles.length > 0))
         .map(output => ({
-          ...output,
+          title: output.title,
+          content: output.content,
+          outputType: output.outputType,
           filePath: output.attachedFiles && output.attachedFiles.length > 0 
             ? output.attachedFiles[0].filePath 
             : output.filePath,
           fileType: output.attachedFiles && output.attachedFiles.length > 0 
             ? output.attachedFiles[0].fileType 
             : output.fileType,
-          attachedFiles: undefined // Remove from database payload
+          includeInExport: true
         }))
 
-      const response = await fetch('/api/prompts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          content,
-          instructions: instructions || null,
-          sections: sections,
-          categoryId: formData.categoryId === 'none' ? null : formData.categoryId,
-          sampleOutputs: processedSampleOutputs
-        }),
+      const result = await createPrompt({
+        ...formData,
+        content,
+        instructions: instructions || undefined,
+        sections: sections,
+        categoryId: formData.categoryId === 'none' ? undefined : formData.categoryId,
+        sampleOutputs: processedSampleOutputs
       })
 
-      if (response.ok) {
+      if (result.success) {
         router.push('/prompts')
       } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to create prompt')
+        alert(result.error || 'Failed to create prompt')
       }
     } catch (error) {
       console.error('Failed to create prompt:', error)
@@ -233,19 +230,13 @@ export default function NewPromptPage() {
 
   const createNewTag = async (name: string, color?: string) => {
     try {
-      const response = await fetch('/api/tags', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          color: color || '#10b981'
-        }),
+      const result = await createTag({
+        name,
+        color: color || '#10b981'
       })
 
-      if (response.ok) {
-        const newTag = await response.json()
+      if (result.success && result.data) {
+        const newTag = result.data
         setTags(prev => [...prev, newTag])
         return {
           value: newTag.id,
@@ -253,8 +244,7 @@ export default function NewPromptPage() {
           color: newTag.color
         }
       } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create tag')
+        throw new Error(result.error || 'Failed to create tag')
       }
     } catch (error) {
       console.error('Failed to create tag:', error)
@@ -264,19 +254,13 @@ export default function NewPromptPage() {
 
   const createNewCategory = async (name: string, color?: string) => {
     try {
-      const response = await fetch('/api/categories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          color: color || '#3b82f6'
-        }),
+      const result = await createCategory({
+        name,
+        color: color || '#3b82f6'
       })
 
-      if (response.ok) {
-        const newCategory = await response.json()
+      if (result.success && result.data) {
+        const newCategory = result.data
         setCategories(prev => [...prev, newCategory])
         return {
           value: newCategory.id,
@@ -284,8 +268,7 @@ export default function NewPromptPage() {
           color: newCategory.color
         }
       } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create category')
+        throw new Error(result.error || 'Failed to create category')
       }
     } catch (error) {
       console.error('Failed to create category:', error)
@@ -456,7 +439,7 @@ export default function NewPromptPage() {
           <CardHeader>
             <CardTitle>Sample Outputs</CardTitle>
             <CardDescription>
-              Add examples of expected outputs to help understand the prompt's purpose
+              Add examples of expected outputs to help understand the prompt&apos;s purpose
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -465,7 +448,7 @@ export default function NewPromptPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {output.outputType === 'TEXT' && <FileText className="h-4 w-4" />}
-                    {output.outputType === 'IMAGE' && <Image className="h-4 w-4" />}
+                    {output.outputType === 'IMAGE' && <Image className="h-4 w-4" alt="" />}
                     <span className="text-sm font-medium">Sample Output {index + 1}</span>
                   </div>
                   <Button

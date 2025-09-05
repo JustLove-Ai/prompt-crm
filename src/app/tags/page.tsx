@@ -1,110 +1,22 @@
-'use client'
-
-import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { DataTable } from '@/components/ui/data-table'
-import { Badge } from '@/components/ui/badge'
 import { Plus, Tags as TagsIcon } from 'lucide-react'
 import Link from 'next/link'
+import { getTags } from '@/lib/actions/tags'
+import { TagsClient } from './tags-client'
 
 interface Tag {
   id: string
   name: string
   color: string
-  prompts?: any[]
+  prompts?: Array<{ id: string; prompt: { title: string } }>
   createdAt: Date
   updatedAt: Date
 }
 
-export default function TagsPage() {
-  const [tags, setTags] = useState<Tag[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchTags()
-  }, [])
-
-  const fetchTags = async () => {
-    try {
-      const response = await fetch('/api/tags')
-      if (response.ok) {
-        const data = await response.json()
-        setTags(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch tags:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleEdit = (tag: Tag) => {
-    window.location.href = `/tags/${tag.id}/edit`
-  }
-
-  const handleDelete = async (tag: Tag) => {
-    if (confirm(`Are you sure you want to delete "${tag.name}"?`)) {
-      try {
-        const response = await fetch(`/api/tags/${tag.id}`, {
-          method: 'DELETE',
-        })
-        if (response.ok) {
-          fetchTags()
-        } else {
-          const error = await response.json()
-          alert(error.error || 'Failed to delete tag')
-        }
-      } catch (error) {
-        console.error('Failed to delete tag:', error)
-        alert('Failed to delete tag')
-      }
-    }
-  }
-
-  const columns = [
-    {
-      key: 'name',
-      label: 'Name',
-      render: (value: string, row: Tag) => (
-        <div className="flex items-center space-x-2">
-          <Badge 
-            variant="secondary" 
-            style={{ backgroundColor: `${row.color}20`, color: row.color, borderColor: row.color }}
-          >
-            {value}
-          </Badge>
-        </div>
-      )
-    },
-    {
-      key: 'color',
-      label: 'Color',
-      render: (value: string) => (
-        <div className="flex items-center space-x-2">
-          <div 
-            className="h-4 w-4 rounded-full border" 
-            style={{ backgroundColor: value }}
-          />
-          <span className="text-sm text-muted-foreground">{value}</span>
-        </div>
-      )
-    },
-    {
-      key: 'prompts',
-      label: 'Used in Prompts',
-      render: (value: any[]) => (
-        <Badge variant="outline">
-          {value?.length || 0} prompts
-        </Badge>
-      )
-    },
-    {
-      key: 'createdAt',
-      label: 'Created',
-      render: (value: Date) => new Date(value).toLocaleDateString()
-    }
-  ]
+export default async function TagsPage() {
+  const result = await getTags()
+  const tags = result.success ? result.data : []
 
   return (
     <div className="space-y-6">
@@ -168,13 +80,7 @@ export default function TagsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={columns}
-            data={tags}
-            loading={loading}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+          <TagsClient tags={tags} />
         </CardContent>
       </Card>
     </div>
